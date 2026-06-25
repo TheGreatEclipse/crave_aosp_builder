@@ -1,4 +1,4 @@
-name: Crave Evolution X Ginkgo (Fixed)
+name: Crave Evolution X Ginkgo (Stable Fixed)
 
 on:
   workflow_dispatch:
@@ -10,23 +10,23 @@ jobs:
     steps:
 
     # -----------------------------
-    # 1. Checkout
+    # 1. Checkout repo
     # -----------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
     # -----------------------------
-    # 2. System deps
+    # 2. System dependencies
     # -----------------------------
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git curl tmux rsync jq bc
+        sudo apt-get install -y git curl tmux rsync jq bc python3
 
     # -----------------------------
-    # 3. Crave install + SSH fix
+    # 3. Install Crave (FIXED)
     # -----------------------------
-    - name: Setup Crave (FIXED SSH)
+    - name: Setup Crave
       run: |
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
@@ -38,34 +38,36 @@ jobs:
 
         sudo ln -sf $HOME/bin/crave /usr/bin/crave || true
 
-        echo "Crave installed successfully"
+        echo "Crave installed"
 
       env:
         CRAVE_USERNAME: ${{ secrets.CRAVE_USERNAME }}
         CRAVE_TOKEN: ${{ secrets.CRAVE_TOKEN }}
 
     # -----------------------------
-    # 4. Start devspace safely
+    # 4. SAFE Crave Devspace (FIXED 127 ERROR)
     # -----------------------------
     - name: Start Crave Devspace (SAFE)
       run: |
-        crave ${{ secrets.CRAVE_FLAGS }} devspace -- "
-          echo 'Looking for runner...';
+        crave ${{ secrets.CRAVE_FLAGS }} devspace -- bash -lc '
+          set -e
+
+          echo "Looking for runner..."
 
           if [ ! -f actions-runner/run.sh ]; then
-            echo 'ERROR: Runner not found';
-            exit 1;
-          fi;
+            echo "ERROR: Runner not found"
+            exit 1
+          fi
 
-          chmod +x actions-runner/run.sh;
+          chmod +x actions-runner/run.sh
 
           if tmux has-session -t ghactions 2>/dev/null; then
-            echo 'Runner already running';
+            echo "Runner already running"
           else
-            tmux new-session -d -s ghactions \"bash actions-runner/run.sh\";
-            echo 'Runner started';
+            tmux new-session -d -s ghactions "bash actions-runner/run.sh"
+            echo "Runner started"
           fi
-        "
+        '
 
     # -----------------------------
     # 5. Workspace setup
@@ -88,7 +90,7 @@ jobs:
         repo init -u https://github.com/Evolution-X/manifest -b bka --git-lfs
 
     # -----------------------------
-    # 7. Local manifest (FIXED NO CONFLICTS)
+    # 7. Local manifest (FIXED CLEAN)
     # -----------------------------
     - name: Local manifest setup
       run: |
@@ -101,7 +103,7 @@ jobs:
           --depth 1 .repo/local_manifests
 
     # -----------------------------
-    # 8. Repo sync (safe flags)
+    # 8. Repo sync (SAFE FLAGS)
     # -----------------------------
     - name: Sync source
       run: |
@@ -113,16 +115,15 @@ jobs:
           --no-tags
 
     # -----------------------------
-    # 9. Build setup
+    # 9. Build ROM
     # -----------------------------
-    - name: Build ROM
+    - name: Build Evolution X
       run: |
         cd work/devspace
 
         source build/envsetup.sh
 
-        # PRODUCT FIX (your request)
+        # FINAL PRODUCT (your request)
         lunch lineage_ginkgo-userdebug
 
-        # Build
         m evolution

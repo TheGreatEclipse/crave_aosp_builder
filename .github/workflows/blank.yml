@@ -1,0 +1,128 @@
+name: Crave Evolution X Ginkgo (Fixed)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    # -----------------------------
+    # 1. Checkout
+    # -----------------------------
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # -----------------------------
+    # 2. System deps
+    # -----------------------------
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git curl tmux rsync jq bc
+
+    # -----------------------------
+    # 3. Crave install + SSH fix
+    # -----------------------------
+    - name: Setup Crave (FIXED SSH)
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+
+        curl -s https://raw.githubusercontent.com/accupara/crave/master/get_crave.sh | bash -s --
+
+        mkdir -p $HOME/bin
+        export PATH=$HOME/bin:$PATH
+
+        sudo ln -sf $HOME/bin/crave /usr/bin/crave || true
+
+        echo "Crave installed successfully"
+
+      env:
+        CRAVE_USERNAME: ${{ secrets.CRAVE_USERNAME }}
+        CRAVE_TOKEN: ${{ secrets.CRAVE_TOKEN }}
+
+    # -----------------------------
+    # 4. Start devspace safely
+    # -----------------------------
+    - name: Start Crave Devspace (SAFE)
+      run: |
+        crave ${{ secrets.CRAVE_FLAGS }} devspace -- "
+          echo 'Looking for runner...';
+
+          if [ ! -f actions-runner/run.sh ]; then
+            echo 'ERROR: Runner not found';
+            exit 1;
+          fi;
+
+          chmod +x actions-runner/run.sh;
+
+          if tmux has-session -t ghactions 2>/dev/null; then
+            echo 'Runner already running';
+          else
+            tmux new-session -d -s ghactions \"bash actions-runner/run.sh\";
+            echo 'Runner started';
+          fi
+        "
+
+    # -----------------------------
+    # 5. Workspace setup
+    # -----------------------------
+    - name: Setup workspace
+      run: |
+        rm -rf work
+        mkdir -p work/devspace
+
+        sudo mkdir -p /crave-devspaces
+        sudo ln -sf $(pwd)/work/devspace /crave-devspaces || true
+
+    # -----------------------------
+    # 6. Evolution X repo init
+    # -----------------------------
+    - name: Repo init Evolution X
+      run: |
+        cd work/devspace
+
+        repo init -u https://github.com/Evolution-X/manifest -b bka --git-lfs
+
+    # -----------------------------
+    # 7. Local manifest (FIXED NO CONFLICTS)
+    # -----------------------------
+    - name: Local manifest setup
+      run: |
+        cd work/devspace
+
+        rm -rf .repo/local_manifests
+        mkdir -p .repo/local_manifests
+
+        git clone https://github.com/TheGreatEclipse/android_local_manifests_ginkgo \
+          --depth 1 .repo/local_manifests
+
+    # -----------------------------
+    # 8. Repo sync (safe flags)
+    # -----------------------------
+    - name: Sync source
+      run: |
+        cd work/devspace
+
+        repo sync -c -j$(nproc --all) \
+          --force-sync \
+          --no-clone-bundle \
+          --no-tags
+
+    # -----------------------------
+    # 9. Build setup
+    # -----------------------------
+    - name: Build ROM
+      run: |
+        cd work/devspace
+
+        source build/envsetup.sh
+
+        # PRODUCT FIX (your request)
+        lunch lineage_ginkgo-userdebug
+
+        # Build
+        m evolution
